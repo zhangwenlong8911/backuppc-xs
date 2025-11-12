@@ -1,6 +1,9 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT([rsync-bpc],[ ],[https://github.com/backuppc/rsync-bpc/issues])
+AC_PREREQ([2.69])
+AC_INIT([BackupPC-XS],[0.63])
+AM_INIT_AUTOMAKE
+
 
 AC_C_BIGENDIAN
 AC_HEADER_DIRENT
@@ -11,20 +14,22 @@ AC_CHECK_HEADERS(sys/fcntl.h sys/select.h fcntl.h sys/time.h sys/unistd.h \
     sys/un.h sys/attr.h arpa/inet.h arpa/nameser.h locale.h sys/types.h \
     netdb.h malloc.h float.h limits.h iconv.h libcharset.h langinfo.h mcheck.h \
     sys/acl.h acl/libacl.h attr/xattr.h sys/xattr.h sys/extattr.h dl.h \
-    popt.h popt/popt.h linux/falloc.h netinet/in_systm.h netgroup.h \
-    zlib.h xxhash.h openssl/md4.h openssl/md5.h zstd.h lz4.h sys/file.h \
+    linux/falloc.h netinet/in_systm.h netgroup.h \
+    openssl/md4.h openssl/md5.h zstd.h lz4.h sys/file.h \
     bsd/string.h)
 AC_CHECK_HEADERS([netinet/ip.h], [], [], [[#include <netinet/in.h>]])
-AC_HEADER_MAJOR_FIXED
+
+AC_HEADER_MAJOR
+# Additional checks for header files.
+AC_CHECK_HEADERS([inttypes.h memory.h netdb.h netinet/in.h stddef.h stdint.h strings.h syslog.h])
 
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_SRCDIR([byteorder.h])
+AC_CONFIG_SRCDIR([bpc_dirOps.c])
 AC_CONFIG_HEADERS([config.h])
 AC_PREREQ([2.69])
 
-PACKAGE_VERSION=`sed -n 's/.*RSYNC_VERSION.*"\(.*\)".*/\1/p' <$srcdir/version.h`
-
-AC_MSG_NOTICE([Configuring rsync_bpc $PACKAGE_VERSION])
+AC_MSG_NOTICE([Configuring BackupPC-XS $PACKAGE_VERSION])
 
 LDFLAGS=${LDFLAGS-""}
 
@@ -68,7 +73,7 @@ AC_DEFINE([_GNU_SOURCE], 1,
           [Define _GNU_SOURCE so that we get all necessary prototypes])
 
 if test x"$ac_cv_prog_cc_stdc" = x"no"; then
-	AC_MSG_WARN([rsync requires an ANSI C compiler and you do not seem to have one])
+	AC_MSG_WARN([BackupPC-XS requires an ANSI C compiler and you do not seem to have one])
 fi
 
 no_lib=''
@@ -125,90 +130,10 @@ if test x"$enable_maintainer_mode" = x"yes"; then
 	CFLAGS="$CFLAGS -DMAINTAINER_MODE"
 fi
 
-# This is needed for our included version of popt.  Kind of silly, but
-# I don't want our version too far out of sync.
-CFLAGS="$CFLAGS -DHAVE_CONFIG_H"
-
 # If GCC, turn on warnings.
 if test x"$GCC" = x"yes"; then
 	CFLAGS="$CFLAGS -Wall -W"
 fi
-
-AC_ARG_WITH(openssl-conf,
-	AS_HELP_STRING([--with-openssl-conf=PATH],[set default OPENSSL_CONF path for rsync]))
-case "$with_openssl_conf" in
-    *[^-/a-zA-Z0-9.,=@+_]*) AC_MSG_ERROR([Invalid path given to --with-openssl-conf]) ;;
-    /*) CFLAGS="$CFLAGS -DSET_OPENSSL_CONF=$with_openssl_conf" ;;
-    no|'') ;;
-    yes) AC_MSG_ERROR([No path given to --with-openssl-conf]) ;;
-    *) AC_MSG_ERROR([Non absolute path given to --with-openssl-conf]) ;;
-esac
-
-AC_ARG_WITH(rrsync,
-        AS_HELP_STRING([--with-rrsync],[also install the rrsync script and its manpage]))
-if test x"$with_rrsync" != x"yes"; then
-    with_rrsync=no
-else
-    MAKE_RRSYNC='rrsync'
-    MAKE_RRSYNC_1='rrsync.1'
-    GEN_RRSYNC='rrsync.1 rrsync.1.html'
-fi
-AC_SUBST(with_rrsync)
-
-AC_ARG_WITH(included-popt,
-        AS_HELP_STRING([--with-included-popt],[use bundled popt library, not from system]))
-
-AC_ARG_WITH(included-zlib,
-        AS_HELP_STRING([--with-included-zlib],[use bundled zlib library, not from system]))
-
-AC_ARG_WITH(secluded-args,
-        AS_HELP_STRING([--with-secluded-args],[make --secluded-args option the default]))
-if test x"$with_secluded_args" = x"yes"; then
-	AC_DEFINE_UNQUOTED(RSYNC_USE_SECLUDED_ARGS, 1, [Define to 1 if --secluded-args should be the default])
-fi
-
-AC_ARG_WITH(rsync-path,
-	AS_HELP_STRING([--with-rsync-path=PATH],[set default --rsync-path to PATH (default: rsync)]),
-	[ RSYNC_PATH="$with_rsync_path" ],
-	[ RSYNC_PATH="rsync" ])
-
-AC_DEFINE_UNQUOTED(RSYNC_PATH, "$RSYNC_PATH", [location of rsync on remote machine])
-
-AC_ARG_WITH(rsyncd-conf,
-	AS_HELP_STRING([--with-rsyncd-conf=PATH],[set configuration file for rsync server to PATH (default: /etc/rsyncd.conf)]),
-	[ if test ! -z "$with_rsyncd_conf" ; then
-		case $with_rsyncd_conf in
-			yes|no)
-				RSYNCD_SYSCONF="/etc/rsyncd.conf"
-				;;
-			/*)
-				RSYNCD_SYSCONF="$with_rsyncd_conf"
-				;;
-			*)
-                                AC_MSG_ERROR(You must specify an absolute path to --with-rsyncd-conf=PATH)
-				;;
-		esac
-	else
-		RSYNCD_SYSCONF="/etc/rsyncd.conf"
-	fi ],
-	[ RSYNCD_SYSCONF="/etc/rsyncd.conf" ])
-
-AC_DEFINE_UNQUOTED(RSYNCD_SYSCONF, "$RSYNCD_SYSCONF", [location of configuration file for rsync server])
-
-AC_ARG_WITH(rsh,
-	AS_HELP_STRING([--with-rsh=CMD],[set remote shell command to CMD (default: ssh)]))
-
-AC_CHECK_PROG(HAVE_REMSH, remsh, 1, 0)
-if test x$HAVE_REMSH = x1; then
-	AC_DEFINE(HAVE_REMSH, 1, [Define to 1 if remote shell is remsh, not rsh])
-fi
-
-if test x"$with_rsh" != x; then
-	RSYNC_RSH="$with_rsh"
-else
-	RSYNC_RSH="ssh"
-fi
-AC_DEFINE_UNQUOTED(RSYNC_RSH, "$RSYNC_RSH", [default -e command])
 
 # Some programs on solaris are only found in /usr/xpg4/bin (or work better than others versions).
 AC_PATH_PROG(SHELL_PATH, sh, /bin/sh, [/usr/xpg4/bin$PATH_SEPARATOR$PATH])
@@ -331,82 +256,6 @@ AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[ ]], [[return 0;]])],
 CFLAGS="$OLD_CFLAGS"
 AC_SUBST(NOEXECSTACK)
 
-# arrgh. libc in some old debian version screwed up the largefile
-# stuff, getting byte range locking wrong
-AC_CACHE_CHECK([for broken largefile support],rsync_cv_HAVE_BROKEN_LARGEFILE,[
-AC_RUN_IFELSE([AC_LANG_SOURCE([[
-#define _FILE_OFFSET_BITS 64
-$ac_includes_default
-#ifdef HAVE_FCNTL_H
-# include <fcntl.h>
-#elif defined HAVE_SYS_FCNTL_H
-# include <sys/fcntl.h>
-#endif
-#ifdef HAVE_SYS_WAIT_H
-#include <sys/wait.h>
-#endif
-
-int main(void)
-{
-	struct flock lock;
-	int status;
-	char tpl[32] = "/tmp/locktest.XXXXXX";
-	int fd = mkstemp(tpl);
-	if (fd < 0) {
-		strcpy(tpl, "conftest.dat");
-		fd = open(tpl, O_CREAT|O_RDWR, 0600);
-	}
-
-	lock.l_type = F_WRLCK;
-	lock.l_whence = SEEK_SET;
-	lock.l_start = 0;
-	lock.l_len = 1;
-	lock.l_pid = 0;
-	fcntl(fd,F_SETLK,&lock);
-	if (fork() == 0) {
-		lock.l_start = 1;
-		_exit(fcntl(fd,F_SETLK,&lock) == 0);
-	}
-	wait(&status);
-	unlink(tpl);
-	return WEXITSTATUS(status);
-}
-]])],[rsync_cv_HAVE_BROKEN_LARGEFILE=yes],[rsync_cv_HAVE_BROKEN_LARGEFILE=no],[rsync_cv_HAVE_BROKEN_LARGEFILE=cross])])
-if test x"$rsync_cv_HAVE_BROKEN_LARGEFILE" != x"yes"; then
-   AC_SYS_LARGEFILE
-fi
-
-AC_MSG_CHECKING([whether to enable ipv6])
-AC_ARG_ENABLE(ipv6,
-AS_HELP_STRING([--disable-ipv6],[disable to omit ipv6 support]),
-[ case "$enableval" in
-  no)
-	AC_MSG_RESULT(no)
-	;;
-  *)	AC_MSG_RESULT(yes)
-	AC_DEFINE(INET6, 1, [true if you have IPv6])
-	;;
-  esac ],
-
-  AC_RUN_IFELSE([AC_LANG_SOURCE([[ /* AF_INET6 availability check */
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-int
-main(void)
-{
-   if (socket(AF_INET6, SOCK_STREAM, 0) < 0)
-     exit(1);
-   else
-     exit(0);
-}
-]])],
-  [AC_MSG_RESULT(yes)
-  AC_DEFINE(INET6, 1, true if you have IPv6)],
-  [AC_MSG_RESULT(no)],
-  [AC_MSG_RESULT(no)]
-))
-
 dnl Do you want to disable use of locale functions
 AC_ARG_ENABLE([locale],
 	AS_HELP_STRING([--disable-locale],[disable to omit locale features]))
@@ -414,40 +263,6 @@ AH_TEMPLATE([CONFIG_LOCALE],
 [Undefine if you do not want locale features.  By default this is defined.])
 if test x"$enable_locale" != x"no"; then
 	AC_DEFINE(CONFIG_LOCALE)
-fi
-
-AC_MSG_CHECKING([whether to call shutdown on all sockets])
-case $host_os in
-	*cygwin* ) AC_MSG_RESULT(yes)
-                   AC_DEFINE(SHUTDOWN_ALL_SOCKETS, 1,
-			    [Define to 1 if sockets need to be shutdown])
-		   ;;
-	       * ) AC_MSG_RESULT(no);;
-esac
-
-AC_MSG_CHECKING([whether to enable use of openssl crypto library])
-AC_ARG_ENABLE([openssl],
-	AS_HELP_STRING([--disable-openssl],[disable to omit openssl crypto library]))
-AH_TEMPLATE([USE_OPENSSL],
-[Undefine if you do not want to use openssl crypto library.  By default this is defined.])
-if test x"$enable_openssl" != x"no"; then
-    if test x"$ac_cv_header_openssl_md4_h" = x"yes" && test x"$ac_cv_header_openssl_md5_h" = x"yes"; then
-      AC_MSG_RESULT(yes)
-      AC_SEARCH_LIBS(MD5_Init, crypto,
-          [AC_DEFINE(USE_OPENSSL)
-	   enable_openssl=yes],
-          [err_msg="$err_msg$nl- Failed to find MD5_Init function in openssl crypto lib.";
-	   no_lib="$no_lib openssl"])
-    else
-        AC_MSG_RESULT(no)
-	err_msg="$err_msg$nl- Failed to find openssl/md4.h and openssl/md5.h for openssl crypto lib support."
-	no_lib="$no_lib openssl"
-    fi
-    if test x"$enable_md5_asm" != x"yes"; then
-	enable_md5_asm=no
-    fi
-else
-    AC_MSG_RESULT(no)
 fi
 
 MD5_ASM=
@@ -504,77 +319,12 @@ fi
 
 AC_SUBST(ROLL_ASM)
 
-AC_MSG_CHECKING([whether to enable xxhash checksum support])
-AC_ARG_ENABLE([xxhash],
-	AS_HELP_STRING([--disable-xxhash],[disable to omit xxhash checksums]))
-AH_TEMPLATE([SUPPORT_XXHASH],
-[Undefine if you do not want xxhash checksums.  By default this is defined.])
-if test x"$enable_xxhash" != x"no"; then
-    if test x"$ac_cv_header_xxhash_h" = x"yes"; then
-	AC_MSG_RESULT(yes)
-	AC_SEARCH_LIBS(XXH64_createState, xxhash,
-	    [AC_DEFINE(SUPPORT_XXHASH)],
-	    [err_msg="$err_msg$nl- Failed to find XXH64_createState function in xxhash lib.";
-	     no_lib="$no_lib xxhash"])
-    else
-	AC_MSG_RESULT(no)
-	err_msg="$err_msg$nl- Failed to find xxhash.h for xxhash checksum support.";
-	no_lib="$no_lib xxhash"
-    fi
-else
-    AC_MSG_RESULT(no)
-fi
-
-AC_MSG_CHECKING([whether to enable zstd compression])
-AC_ARG_ENABLE([zstd],
-        AS_HELP_STRING([--disable-zstd], [disable to omit zstd compression]))
-AH_TEMPLATE([SUPPORT_ZSTD],
-[Undefine if you do not want zstd compression.  By default this is defined.])
-if test x"$enable_zstd" != x"no"; then
-    if test x"$ac_cv_header_zstd_h" = x"yes"; then
-	AC_MSG_RESULT(yes)
-	AC_SEARCH_LIBS(ZSTD_minCLevel, zstd,
-	    [AC_DEFINE(SUPPORT_ZSTD)],
-	    [err_msg="$err_msg$nl- Failed to find ZSTD_minCLevel function in zstd lib.";
-	     no_lib="$no_lib zstd"])
-    else
-	AC_MSG_RESULT(no)
-	err_msg="$err_msg$nl- Failed to find zstd.h for zstd compression support.";
-	no_lib="$no_lib zstd"
-    fi
-else
-    AC_MSG_RESULT(no)
-fi
-
-AC_MSG_CHECKING([whether to enable LZ4 compression])
-AC_ARG_ENABLE([lz4],
-        AS_HELP_STRING([--disable-lz4], [disable to omit LZ4 compression]))
-AH_TEMPLATE([SUPPORT_LZ4],
-[Undefine if you do not want LZ4 compression.  By default this is defined.])
-if test x"$enable_lz4" != x"no"; then
-    if test x"$ac_cv_header_lz4_h" = x"yes"; then
-	AC_MSG_RESULT(yes)
-	AC_SEARCH_LIBS(LZ4_compress_default, lz4,
-	    [AC_DEFINE(SUPPORT_LZ4)],
-	    [err_msg="$err_msg$nl- Failed to find LZ4_compress_default function in lz4 lib.";
-	     no_lib="$no_lib lz4"])
-    else
-	AC_MSG_RESULT(no)
-	err_msg="$err_msg$nl- Failed to find lz4.h for lz4 compression support."
-	no_lib="$no_lib lz4"
-    fi
-else
-    AC_MSG_RESULT(no)
-fi
-
 if test x"$no_lib" != x; then
     echo ""
     echo "Configure found the following issues:"
     echo "$err_msg"
     echo ""
-    echo "See the INSTALL file for hints on how to install the missing libraries and/or"
-    echo "how to generate (or fetch) manpages:"
-    echo "    https://github.com/WayneD/rsync/blob/master/INSTALL.md"
+    echo "See the INSTALL and README files, or post to the BackupPC Users' Mailing List"
     echo ""
     echo "To disable one or more features, the relevant configure options are:"
     for lib in $no_lib; do
@@ -632,8 +382,15 @@ if test $ac_cv_c_long_double = yes; then
   AC_DEFINE([HAVE_LONG_DOUBLE],[1],[Define to 1 if the type `long double' works and has more range or precision than `double'.])
 fi
 
+AC_CHECK_HEADER_STDBOOL
+AC_C_INLINE
 AC_TYPE_UID_T
-AC_CHECK_TYPES([mode_t,off_t,size_t,pid_t,id_t])
+AC_TYPE_MODE_T
+AC_TYPE_OFF_T
+AC_TYPE_PID_T
+AC_TYPE_SIZE_T
+AC_TYPE_SSIZE_T
+AC_CHECK_TYPES([mode_t,off_t,size_t,pid_t,id_t,ptrdiff_t])
 if test "$cross_compiling" = no; then
     AC_TYPE_GETGROUPS
 else
@@ -652,8 +409,6 @@ AC_CHECK_MEMBERS([struct stat.st_rdev,
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif])
-
-TYPE_SOCKLEN_T
 
 AC_CACHE_CHECK([for errno in errno.h],rsync_cv_errno, [
     AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <errno.h>]], [[int i = errno]])],[rsync_cv_errno=yes],[rsync_cv_have_errno_decl=no])])
@@ -733,121 +488,6 @@ dnl AC_MSG_NOTICE([Looking in libraries: $LIBS])
 
 AC_REPLACE_FUNCS([inet_ntop inet_pton])
 
-AC_HAVE_TYPE([struct addrinfo], [#include <netdb.h>])
-AC_HAVE_TYPE([struct sockaddr_storage], [
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
-#endif])
-
-# Irix 6.5 has getaddrinfo but not the corresponding defines, so use
-#   builtin getaddrinfo if one of the defines don't exist
-AC_CACHE_CHECK([whether defines needed by getaddrinfo exist],
-               rsync_cv_HAVE_GETADDR_DEFINES,[
-			AC_EGREP_CPP(yes, [
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
-#endif
-#ifdef HAVE_NETDB_H
-#include <netdb.h>
-#endif
-#ifdef AI_PASSIVE
-yes
-#endif],
-			rsync_cv_HAVE_GETADDR_DEFINES=yes,
-			rsync_cv_HAVE_GETADDR_DEFINES=no)])
-AS_IF([test x"$rsync_cv_HAVE_GETADDR_DEFINES" = x"yes" && test x"$ac_cv_type_struct_addrinfo" = x"yes"],[
-	# Tru64 UNIX has getaddrinfo() but has it renamed in libc as
-	# something else so we must include <netdb.h> to get the
-	# redefinition.
-	AC_CHECK_FUNCS(getaddrinfo, ,
-		[AC_MSG_CHECKING([for getaddrinfo by including <netdb.h>])
-		AC_LINK_IFELSE([AC_LANG_PROGRAM([[
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
-#endif
-#include <netdb.h>]], [[getaddrinfo(NULL, NULL, NULL, NULL);]])],[AC_MSG_RESULT([yes])
-			AC_DEFINE(HAVE_GETADDRINFO, 1,
-				[Define to 1 if you have the "getaddrinfo" function and required types.])],[AC_MSG_RESULT([no])
-			AC_LIBOBJ([getaddrinfo])])])
-    ],[AC_LIBOBJ([getaddrinfo])])
-
-AC_CHECK_MEMBER([struct sockaddr.sa_len],
-		[ AC_DEFINE(HAVE_SOCKADDR_LEN, 1, [Do we have sockaddr.sa_len?]) ],
-		[],
-		[
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
-#endif
-])
-
-AC_CHECK_MEMBER([struct sockaddr_in.sin_len],
-		[ AC_DEFINE(HAVE_SOCKADDR_IN_LEN, 1, [Do we have sockaddr_in.sin_len?]) ],
-		[],
-		[
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
-#endif
-#include <netinet/in.h>
-])
-
-AC_CHECK_MEMBER([struct sockaddr_un.sun_len],
-		[ AC_DEFINE(HAVE_SOCKADDR_UN_LEN, 1, [Do we have sockaddr_un.sun_len?]) ],
-		[],
-		[
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
-#endif
-#include <netinet/in.h>
-])
-
-AC_CHECK_MEMBER([struct sockaddr_in6.sin6_scope_id],
-		[ AC_DEFINE(HAVE_SOCKADDR_IN6_SCOPE_ID, 1, [Do we have sockaddr_in6.sin6_scope_id?]) ],
-		[],
-		[
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
-#endif
-#include <netinet/in.h>
-])
-
-AC_HAVE_TYPE([struct stat64], [#include <stdio.h>
-#if HAVE_SYS_TYPES_H
-# include <sys/types.h>
-#endif
-#if HAVE_SYS_STAT_H
-# include <sys/stat.h>
-#endif
-#if STDC_HEADERS
-# include <stdlib.h>
-# include <stddef.h>
-#else
-# if HAVE_STDLIB_H
-#  include <stdlib.h>
-# endif
-#endif
-])
-
 # if we can't find strcasecmp, look in -lresolv (for Unixware at least)
 #
 AC_CHECK_FUNCS(strcasecmp)
@@ -865,8 +505,11 @@ dnl need to do is test for equality, not comparison, and it seems that
 dnl every platform has a memcmp that can do at least that.
 dnl AC_FUNC_MEMCMP
 
+# Checks for library functions.
 AC_FUNC_UTIME_NULL
 AC_FUNC_ALLOCA
+AC_FUNC_MALLOC
+AC_FUNC_REALLOC
 AC_CHECK_FUNCS(waitpid wait4 strdup getcwd chown chmod lchmod mknod mkfifo \
     fchmod fstat ftruncate strchr readlink link utime utimes lutimes strftime \
     chflags getattrlist mktime innetgr linkat \
@@ -877,6 +520,8 @@ AC_CHECK_FUNCS(waitpid wait4 strdup getcwd chown chmod lchmod mknod mkfifo \
     extattr_get_link sigaction sigprocmask setattrlist getgrouplist \
     initgroups utimensat posix_fallocate attropen setvbuf nanosleep usleep \
     setenv unsetenv)
+
+AC_CHECK_FUNCS([localeconv memchr memset mkdir rmdir strchr strrchr])
 
 dnl cygwin iconv.h defines iconv_open as libiconv_open
 if test x"$ac_cv_func_iconv_open" != x"yes"; then
@@ -962,7 +607,7 @@ AC_ARG_ENABLE(iconv-open,
     [], [enable_iconv_open=$ac_cv_func_iconv_open])
 
 if test x"$enable_iconv_open" != x"no"; then
-    AC_DEFINE(USE_ICONV_OPEN, 1, [Define to 1 if you want rsync to make use of iconv_open()])
+    AC_DEFINE(USE_ICONV_OPEN, 1, [Define to 1 if you want BackupPC-XS to make use of iconv_open()])
 fi
 
 AC_ARG_ENABLE(iconv,
@@ -1066,55 +711,6 @@ if test x"$rsync_cv_HAVE_SOCKETPAIR" = x"yes"; then
 fi
 
 AC_REPLACE_FUNCS([getpass])
-
-if test x"$with_included_popt" != x"yes"; then
-    AC_CHECK_LIB(popt, poptGetContext, , [with_included_popt=yes])
-fi
-if test x"$ac_cv_header_popt_popt_h" = x"yes"; then
-    # If the system has /usr/include/popt/popt.h, we enable the
-    # included popt because an attempt to "#include <popt/popt.h>"
-    # would use our included header file anyway (due to -I.), and
-    # might conflict with the system popt.
-    with_included_popt=yes
-elif test x"$ac_cv_header_popt_h" != x"yes"; then
-    with_included_popt=yes
-fi
-
-AC_MSG_CHECKING([whether to use included libpopt])
-if test x"$with_included_popt" = x"yes"; then
-    AC_MSG_RESULT($srcdir/popt)
-    BUILD_POPT='$(popt_OBJS)'
-    CFLAGS="-I$srcdir/popt $CFLAGS"
-    if test x"$ALLOCA" != x
-    then
-	# this can be removed when/if we add an included alloca.c;
-	#  see autoconf documentation on AC_FUNC_ALLOCA
-	AC_MSG_WARN([included libpopt will use malloc, not alloca (which wastes a small amount of memory)])
-    fi
-else
-    AC_MSG_RESULT(no)
-fi
-
-# We default to not using our zlib unless --with-included-zlib=yes is given.
-if test x"$with_included_zlib" != x"yes"; then
-    with_included_zlib=no
-fi
-if test x"$ac_cv_header_zlib_h" != x"yes"; then
-    with_included_zlib=yes
-fi
-if test x"$with_included_zlib" != x"yes"; then
-    AC_CHECK_LIB(z, deflateParams, , [with_included_zlib=yes])
-fi
-
-AC_MSG_CHECKING([whether to use included zlib])
-if test x"$with_included_zlib" = x"yes"; then
-    AC_MSG_RESULT($srcdir/zlib)
-    BUILD_ZLIB='$(zlib_OBJS)'
-    CFLAGS="-I$srcdir/zlib $CFLAGS"
-else
-    AC_DEFINE(EXTERNAL_ZLIB, 1, [Define to 1 if using external zlib])
-    AC_MSG_RESULT(no)
-fi
 
 AC_CACHE_CHECK([for unsigned char],rsync_cv_SIGNED_CHAR_OK,[
 AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[signed char *s = (signed char *)""]])],[rsync_cv_SIGNED_CHAR_OK=yes],[rsync_cv_SIGNED_CHAR_OK=no])])
@@ -1280,11 +876,6 @@ fi
 AC_SUBST(OBJ_SAVE)
 AC_SUBST(OBJ_RESTORE)
 AC_SUBST(CC_SHOBJ_FLAG)
-AC_SUBST(BUILD_POPT)
-AC_SUBST(BUILD_ZLIB)
-AC_SUBST(MAKE_RRSYNC)
-AC_SUBST(MAKE_RRSYNC_1)
-AC_SUBST(GEN_RRSYNC)
 AC_SUBST(MAKE_MAN)
 
 AC_CHECK_FUNCS(_acl __acl _facl __facl)
@@ -1440,9 +1031,9 @@ case "$CC" in
     ;;
 esac
 
-AC_CONFIG_FILES([Makefile lib/dummy zlib/dummy popt/dummy shconfig])
+AC_CONFIG_FILES([Makefile lib/dummy])
 AC_OUTPUT
 
 AC_MSG_RESULT()
-AC_MSG_RESULT([    rsync_bpc $PACKAGE_VERSION configuration successful])
+AC_MSG_RESULT([    BackupPC-XS $PACKAGE_VERSION configuration successful])
 AC_MSG_RESULT()

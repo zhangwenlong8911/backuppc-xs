@@ -16,18 +16,22 @@ my $object = q[
     ];
 $object =~ s/[\n\r\s]+/ /g;
 
+# 2025.11.12: Added 'realclean' target for 'make', removed 'zlib'.  == GWH ==
 WriteMakefile(
     NAME              => 'BackupPC::XS',
-    VERSION_FROM      => 'lib/BackupPC/XS.pm', # finds $VERSION
+    VERSION_FROM      => 'lib/BackupPC/XS.pm', # finds $VERSION (if you're lucky)
     ABSTRACT_FROM     => 'lib/BackupPC/XS.pm', # finds ABSTRACT
     PREREQ_PM         => {}, # e.g., Module::Name => 1.1
-    LIBS              => [''], # e.g., '-lm'
+    LIBS              => ['-lz'],
     DEFINE            => '', # e.g., '-DHAVE_SOMETHING'
     INC               => '-I.', # e.g., '-I. -I/usr/include/other'
     OBJECT            => $object,
-    MYEXTLIB          => 'zlib/libzlib$(LIB_EXT) md5/libmd5$(LIB_EXT)',
+    MYEXTLIB          => 'md5/libmd5$(LIB_EXT)',
+# 2025.11.12: We could add more tests, all we do at the moment is check that it loads.  == GWH ==
+#   TESTS             => ...,
     depend            => { 'BackupPC_XS.o' => 'config.h' },
     clean             => { FILES => "config.log config.status config.h" },
+    realclean         => { FILES => "config.log config.status config.h *.o" },
 );
 
 # by Nicholas Clark <nick@ccl4.org>
@@ -42,14 +46,11 @@ sub MY::subdir_x {
 sub MY::postamble {
         return <<'EOF';
 
-zlib/libzlib$(LIB_EXT): zlib/Makefile config.h
-	cd zlib && $(MAKE) $(PASSTHRU)
-
 md5/libmd5$(LIB_EXT): md5/Makefile config.h
 	cd md5 && $(MAKE) $(PASSTHRU)
 
 config.h: config.h.in
-	./configure.sh
+	./configure --disable-md2man
 
 $(OBJECT) : config.h
 
