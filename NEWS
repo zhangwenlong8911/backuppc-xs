@@ -1,0 +1,8 @@
+2025.11.10
+
+This version (0.63) of BackupPC use the system zlib library, the
+bundled version has been removed.
+
+See also 'ChangeLog'.
+
+== GWH ==

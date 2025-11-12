@@ -55,7 +55,8 @@ my @FILE_TYPES = qw(
     'all'    => [ @EXPORT_OK ],
 );
 
-our $VERSION = '0.62';
+our
+    $VERSION = '0.63'; # Looks strange but needs to be on a line of its own so MakeMaker finds it.
 
 require XSLoader;
 XSLoader::load('BackupPC::XS', $VERSION);
@@ -230,12 +231,11 @@ rsync-bpc.
 
 =head1 AUTHOR
 
-Craig Barratt, E<lt>cbarratt@users.sourceforge.net<gt>
+Craig Barratt
 
 =head1 COPYRIGHT AND LICENSE
 
-BackupPC code is copyright (C) 2013-2017 Craig Barratt
-<cbarratt@users.sourceforge.net>.
+BackupPC::XS code is copyright (C) 2013-2025 Craig Barratt
 
 bpc_hashTable.c is based on code from rsync.  Rsync is Copyright
 (C) 1996-2001 by Andrew Tridgell, 1996 by Paul Mackerras, 2001-2002
@@ -243,9 +243,6 @@ by Martin Pool, and 2003-2009 by Wayne Davison, and others.
 
 The md5 library is from the rsync codebase, and is Copyright (C) 2001-2003
 Christophe Devine.  See the code for the license.
-
-The zlib library is from the rsync codebase, and is Copyright (C) 1995-2005
-Jean-loup Gailly and Mark Adler.  See the code for the license.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

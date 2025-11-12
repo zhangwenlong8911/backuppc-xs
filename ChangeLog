@@ -1,0 +1,8 @@
+2025.11.08
+  VERSION 0.63:
+  - Remove the bundled zlib, which has security issues.
+  - Replace 'configure.sh' by 'configure'.  Original file remains for reference
+    and probably still works.
+  - To comply with GNU terms (and to satisfy Red Hat), include source sufficient
+    to use GNU autotools to create the 'configure' script.
+  - Silence a bunch of warnings.

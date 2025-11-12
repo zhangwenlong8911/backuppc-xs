@@ -1,7 +1,7 @@
 /*
  * Definitions for BackupPC libraries.
  *
- * Copyright (C) 2013 Craig Barratt.
+ * Copyright (C) 2013-2025 Craig Barratt.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,7 +22,30 @@
 #define _BACKUPPC_H_
 
 #include <rsync.h>
-#include "zlib/zlib.h"
+#include <zlib.h>	/* 2025.11.12: Use the system-provided zlib. == GWH == */
+
+/* 2025.11.12: Support building on Hurd.  == GWH == From "MAXPATHLEN.patch", Debian patchset ca. August 2021. */
+#ifndef MAXPATHLEN
+#  ifdef PATH_MAX
+#    ifdef _POSIX_PATH_MAX
+#       if PATH_MAX > _POSIX_PATH_MAX
+/* MAXPATHLEN is supposed to include the final null character,
+ *  * as opposed to PATH_MAX and _POSIX_PATH_MAX. */
+#         define MAXPATHLEN (PATH_MAX+1)
+#       else
+#         define MAXPATHLEN (_POSIX_PATH_MAX+1)
+#       endif
+#    else
+#      define MAXPATHLEN (PATH_MAX+1)
+#    endif
+#  else
+#    ifdef _POSIX_PATH_MAX
+#       define MAXPATHLEN (_POSIX_PATH_MAX+1)
+#    else
+#       define MAXPATHLEN 1024  /* Err on the large side. */
+#    endif
+#  endif
+#endif
 
 #define BPC_MAXPATHLEN          (2 * MAXPATHLEN)
 

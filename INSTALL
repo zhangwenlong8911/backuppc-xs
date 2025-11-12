@@ -1,0 +1,30 @@
+2025.11.12
+
+For 'normal' installation see README.
+
+If you're working on the installation scripts/makefiles etc. then
+there's a script to clean out the directory before running Automake.
+
+$ ./make_clean_for_autotools.sh				[*]
+
+and then proceed as in the README with something like
+
+$ autoreconf --install
+$ perl Makefile.PL
+or maybe for testing
+$ perl Makefile.PL INSTALL_BASE=/home/user/junk
+$ cp Makefile Makefile.real				[**]
+$ make
+$ make test
+If you're installing in a user location
+$ make -f Makefile.real pure_install
+or if you're feeling adventurous as root
+# make -f Makefile.real pure_install
+
+[*] This really ought to be 'make distclean' or something like that.
+[**] Sorry, a horrible hack (the C source files etc. should be in ./src/).
+
+Hopefully Cmake will replace Autotools in the not too distant future,
+so the Autotools build stuff can all be junked.
+
+== GWH ==
